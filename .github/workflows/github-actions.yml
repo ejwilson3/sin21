@@ -1,8 +1,9 @@
-name: GitHub Actions
+name: Tests
 on: [push]
 jobs:
-    runs-on: ubuntu-latest
-    steps:
-        - name: Check out repository code
-          uses: actions/checkout@v2
-        - run: echo "This job's status is ${{ job.status }}."
+    Tests:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Check out repository code
+              uses: actions/checkout@v2
+            - run: echo "This job's status is ${{ job.status }}."
