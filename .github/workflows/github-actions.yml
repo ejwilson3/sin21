@@ -1,11 +1,9 @@
 name: Tests
 on: [push]
-env:
-    CODE_DIR: code
 jobs:
     Tests:
         env:
-            working-directory: ${{ env.CODE_DIR }}
+            working-directory: code
         runs-on: ubuntu-latest
         steps:
             - name: Check out repository code
