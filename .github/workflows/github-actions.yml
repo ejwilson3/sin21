@@ -1,9 +1,12 @@
 name: Tests
 on: [push]
+env:
+    CODE_DIR: code
 jobs:
     Tests:
         runs-on: ubuntu-latest
         steps:
             - name: Check out repository code
               uses: actions/checkout@v2
+            - run: python ${{ env.CODE_DIR }}/hw.py
             - run: echo "This job's status is ${{ job.status }}."
