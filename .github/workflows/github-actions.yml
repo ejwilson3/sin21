@@ -9,6 +9,6 @@ jobs:
         steps:
             - name: Check out repository code
               uses: actions/checkout@v2
-            - run: python hw.py
+            - run: python hw2.py
               working-directory: ${{env.working-directory}}
             - run: echo "This job's status is ${{ job.status }}."
