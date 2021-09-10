@@ -14,12 +14,12 @@ def isNum(s):
     return re.search("\w", s).group().isupper()
 
 def isWeight(s):
-    if isGoal(s):
+    if not isGoal(s):
         return 0
     elif re.search("\+", s) != None:
-        return -1
-    elif re.search("-", s) != None:
         return 1
+    elif re.search("-", s) != None:
+        return -1
     return 0 # Not sure if this is right
 
 def isSkip(s):
@@ -36,9 +36,7 @@ class Num:
         self._stdiv = 0.0
         self._pmean = 0.0
         self._pstdiv = 0.0
-        self._pmax = 0.0
         self._max = 0.0
-        self._pmin = 0.0
         self._min = 0.0
 
     def add(self, val):
@@ -49,12 +47,8 @@ class Num:
         self._mean = (self._mean*len(self._vals) + val)/len(self._vals)
         self._pstdiv = self._stdiv
         self._stdiv = np.std(self._vals)
-        if val > self._max:
-            self._pmax = self._max
-            self._max = val
-        if val < self._min:
-            self._pmin = self._min
-            self._min = val
+        self._max = max(self._vals)
+        self._min = min(self._vals)
         return 0
 
     def undo_add(self):
@@ -62,8 +56,12 @@ class Num:
         self._vals = self._vals[:-1]
         self._mean = self._pmean
         self._stdiv = self._pstdiv
-        self._max = self._pmax
-        self._min = self._pmin
+        if len(self._vals):
+            self._max = max(self._vals)
+            self._min = min(self._vals)
+        else:
+            self._max = 0.0
+            self._min = 0.0
         return 0
         
 class Skip:
@@ -158,7 +156,22 @@ class Sample:
 
     def sort(self):
         # Brute force sort because it's late
-        sorted(self._rows, key=cmp_to_key(self.zitler))
+        for i in range(len(self._rows)):
+            for j in range(i):
+                if self.zitler(self._rows[i-j], self._rows[i-j-1]):
+                    self._rows[i-j], self._rows[i-j-1] = self._rows[i-j-1], self._rows[i-j]
+                else:
+                    break
+
+
+        # print(self._col_info)
+        # print(self._rows[0])
+        # print(self._rows[1])
+        # print(self.zitler(self._rows[0], self._rows[1]))
+        # print(self.zitler(self._rows[1], self._rows[2]))
+        # print(self.zitler(self._rows[2], self._rows[3]))
+        # print(cmp_to_key(self.zitler))
+        # print(sorted(self._rows, key=cmp_to_key(self.zitler)))
 
     def zitler(self, row1, row2):
         goalids = []
@@ -172,11 +185,15 @@ class Sample:
         for idx in goalids:
             w = isWeight(self._col_info[idx][1])
             minn = self._cols[idx]._min
+        #     print(minn)
             maxx = self._cols[idx]._max
+         #    print(maxx)
             if(minn == maxx):
                 continue
             x = (row1[idx] - minn)/(maxx - minn)
             y = (row2[idx] - minn)/(maxx - minn)
             s1 = s1 - e**(w*(x - y)/n)
+          #   print(s1)
             s2 = s2 - e**(w*(y - x)/n)
+           #  print(s2)
         return s1/n < s2/n

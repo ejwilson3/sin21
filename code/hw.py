@@ -43,8 +43,9 @@ def csv(filename):
             linelist[i] = linelist[i].strip(" \n")
         linelist = [item for item in linelist if item != '']
         if (len(linelist) != num_cols):
-            print("Length mismatch in line " + str(temp) + "; skipping line")
+            # print("Length mismatch in line " + str(temp) + "; skipping line")
             continue
+        good = True
         for i in range(len(linelist)):
             if types[i] == 'n':
                 try:
@@ -58,8 +59,11 @@ def csv(filename):
                         elif linelist[i] == 'FALSE':
                             linelist[i] = 0
                         else:
-                            print("NaN in number column in line " + str(temp) + "; skipping line")
-                            continue
+                            # print("NaN in number column in line " + str(temp) + "; skipping line")
+                            good = False
+                            break
+        if not good:
+            continue
         datalist.append(linelist)
     return firstline, datalist
     # print("Ran in " + str(time.time() - runtime) + "s")

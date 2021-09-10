@@ -8,9 +8,8 @@ sample2.read(files[1])
 sample3 = simple.Sample()
 sample3.read(files[2])
 sample3.sort()
-print(sample3._col_info)
 for i in range(5):
     print(sample3._rows[i])
 print()
 for i in range(5):
-    print(sample3._rows[-1*i])
+    print(sample3._rows[-1*(5 - i)])
