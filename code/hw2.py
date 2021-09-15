@@ -1,15 +1,69 @@
-import simple
+import re
+import time
 
-files = ["../data/weather.csv", "../data/pom3a.csv", "../data/auto93.csv"]
-sample1 = simple.Sample()
-sample1.read(files[0])
-sample2 = simple.Sample()
-sample2.read(files[1])
-sample3 = simple.Sample()
-sample3.read(files[2])
-sample3.sort()
-for i in range(5):
-    print(sample3._rows[i])
-print()
-for i in range(5):
-    print(sample3._rows[-1*(5 - i)])
+def csv(filename):
+    firstline = []
+    types = []
+    datalist = []
+
+    runtime = time.time()
+    file = open(filename)
+    data = file.readlines()
+    templine = ""
+    while(firstline == []):
+        temp = data.pop(0).split("#")[0]
+        temp = temp.strip(" \n")
+        if len(temp) == 0:
+            continue
+        templine += temp
+        if templine[-1] == ",":
+            continue
+        firstline = templine.split(",")
+        for item in firstline:
+            ch = re.search("\w", item)
+            if ch.group().isupper():
+                types.append('n')
+            else:
+                types.append('c')
+
+    num_cols = len(firstline)
+    dangling = ""
+    for line in data:
+        temp = line.split("#")[0]
+        temp = temp.strip()
+        if len(temp) == 0:
+            continue
+        if temp[-1] == ",":
+            dangling += temp
+            continue
+        temp = dangling + temp
+        dangling = ""
+        linelist = temp.split(",")
+        for i in range(len(linelist)):
+            linelist[i] = linelist[i].strip(" \n")
+        linelist = [item for item in linelist if item != '']
+        if (len(linelist) != num_cols):
+            # print("Length mismatch in line " + str(temp) + "; skipping line")
+            continue
+        good = True
+        for i in range(len(linelist)):
+            if types[i] == 'n':
+                try:
+                    linelist[i] = int(linelist[i])
+                except:
+                    try:
+                        linelist[i] = float(linelist[i])
+                    except:
+                        if linelist[i] == 'TRUE':
+                            linelist[i] = 1
+                        elif linelist[i] == 'FALSE':
+                            linelist[i] = 0
+                        else:
+                            # print("NaN in number column in line " + str(temp) + "; skipping line")
+                            good = False
+                            break
+        if not good:
+            continue
+        datalist.append(linelist)
+    return firstline, datalist
+    # print("Ran in " + str(time.time() - runtime) + "s")

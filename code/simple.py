@@ -1,7 +1,7 @@
 import numpy as np
 import re
 import copy
-import hw
+import hw2
 from functools import cmp_to_key
 
 def isKlass(s):
@@ -63,6 +63,16 @@ class Num:
             self._max = 0.0
             self._min = 0.0
         return 0
+
+    def dist(self, v1, v2, dist_type="aha"):
+        if dist_type == "aha":
+            if v1 == v2:
+                return 0
+            else:
+                x = (v1 - self._min)/(self._max - self._min)
+                y = (v2 - self._min)/(self._max - self._min)
+                return abs(x - y)
+        return 1
         
 class Skip:
     def __init__(self, val=None):
@@ -82,9 +92,10 @@ class Skip:
 
 class Sym:
     def __init__(self, val=None):
-        self._vals = {}
+        self._vals = []
+        self._val_dict = {}
         if val:
-            self._vals[val] = 1
+            self._val_dict[val] = 1
             self._mode = [val]
         else:
             self._mode = []
@@ -92,13 +103,14 @@ class Sym:
         self._pval = val
 
     def add(self, val):
+        self._vals.append(val)
         self._pval = val
-        self._vals[val] = self._vals.get(val, 0) + 1
+        self._val_dict[val] = self._val_dict.get(val, 0) + 1
         if not len(self._mode):
             self._mode.append(val)
         else:
             self._pmode = self._mode
-            if self._vals[self._mode[0]] == self._vals[val]:
+            if self._val_dict[self._mode[0]] == self._val_dict[val]:
                 self._mode.append(val)
             else:
                 self._mode = [val] 
@@ -106,9 +118,17 @@ class Sym:
 
     def undo_add(self):
         # This stores one state in the past.
-        self._vals[self._pval] -= 1
+        self._vals = self._vals[:-1]
+        self._val_dict[self._pval] -= 1
         self._mode = self._pmode
         return 0
+
+    def dist(self, idx1, idx2, dist_type="aha"):
+        if dist_type="aha":
+            if idx1 == idx2:
+                return 0
+        return 1
+            
 
 class Sample:
     def __init__(self):
@@ -120,13 +140,14 @@ class Sample:
         if len(row) != len(self._cols):
             if len(self._cols) == 0:
                 for item in row:
-                    if isGoal(item):
-                        self._col_info.append(("y", item))
-                    else:
-                        self._col_info.append(("x", item))
                     if isSkip(item):
+                        self._col_info.append(("s", item))
                         self._cols.append(Skip())
                     else:
+                        if isGoal(item):
+                            self._col_info.append(("y", item))
+                        else:
+                            self._col_info.append(("x", item))
                         if isNum(item):
                             self._cols.append(Num())
                         else:
@@ -149,7 +170,7 @@ class Sample:
         return copy.deep_copy(self)
     
     def read(self, filename):
-        first, rest = hw.csv(filename)
+        first, rest = hw2.csv(filename)
         self.add(first)
         for row in rest:
             self.add(row)
@@ -197,3 +218,27 @@ class Sample:
             s2 = s2 - e**(w*(y - x)/n)
            #  print(s2)
         return s1/n < s2/n
+
+    def neighbors(self, row_idx):
+        for c_idx, item in enumerate(self._rows[row_idx]):
+            print(item)
+            if self._col_info[c_idx][0] == "s":
+                print("Skip")
+            else:
+                base = self._cols[c_idx]
+                max_dist = -1
+                min_dist = 2
+                max_val = ""
+                min_val = ""
+                for b_idx, val in enumerate(base._vals):
+                    if b_idx == c_idx:
+                        continue
+                    dist = base.dist(item, val)
+                    if dist < min_dist:
+                        min_dist = dist
+                        min_val = val
+                    if dist > max_dist:
+                        max_dist = dist
+                        max_val = val
+            print("Nearest Neighbor: " + str(min_val) + " at " + str(min_dist))
+            print("Furthest Neighbor: " + str(max_val) + " at " + str(max_dist))
