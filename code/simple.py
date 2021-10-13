@@ -1,4 +1,6 @@
 import numpy as np
+import math
+import random
 import re
 import copy
 import hw2
@@ -16,22 +18,30 @@ def isNum(s):
 def isWeight(s):
     if not isGoal(s):
         return 0
-    elif re.search("\+", s) != None:
+    elif "+" in s:
         return 1
-    elif re.search("-", s) != None:
+    elif "-" in s:
         return -1
     return 0 # Not sure if this is right
 
 def isSkip(s):
     return re.search("\?", s) != None
 
+class Displ:
+    def __init__(self, **kwargs):
+        self.__dict__.update(kwargs)
+    def __repr__(self):
+        return ("{" + ', '.join([f":{k} {v}" for k, v in self.__dict__.items() if k[0] != "_"]) + "}")
+
 # Simple C style error codes
 class Num:
-    def __init__(self, val=None):
+    def __init__(self, col, name, val=None):
         if val:
             self._vals = np.array([val])
         else:
             self._vals = np.array([])
+        self._col = col
+        self._name = name
         self._mean = val if val else 0.0
         self._stdiv = 0.0
         self._pmean = 0.0
@@ -69,13 +79,39 @@ class Num:
             if v1 == v2:
                 return 0
             else:
-                x = (v1 - self._min)/(self._max - self._min)
-                y = (v2 - self._min)/(self._max - self._min)
+                x = self.norm(v1)
+                y = self.norm(v2)
                 return abs(x - y)
         return 1
-        
+    
+    def norm(self, x):
+        if abs(self._max - self._min) < 1E-31:
+            return 0
+        return (x - self._min)/(self._max - self._min)
+
+    def discretize(self, other, cohen=0.3, bins=None):
+        best = 1
+        rest = 0
+        xys = [(good, best) for good in self._vals] + \
+              [(bad, rest) for bad in other._vals]
+        if bins == None:
+            bins = math.sqrt(len(xys))           
+
+        n1 = len(self._vals)
+        n2 = len(other._vals)
+        iota = cohen*(self._stdiv*n1 + other._stdiv*n2)/(n1 + n2)
+        ranges = merge(unsuper(xys, len(xys)**bins, iota))
+
+        if len(ranges) > 1:
+            for r in ranges:
+# TODO
+                # Do I need to keep track of the number of each specific values?
+                yield Displ(at=self._col, name=self._name, low=self._min, high=self._max, best=self._val_dict.get(key, 0), rest=self._val_dict.get(key, 0))
+
 class Skip:
-    def __init__(self, val=None):
+    def __init__(self, col, name, val=None):
+        self._col = col
+        self._name = name
         if val:
             self._vals = [val]
         else:
@@ -91,7 +127,9 @@ class Skip:
         return 0
 
 class Sym:
-    def __init__(self, val=None):
+    def __init__(self, col, name, val=None):
+        self._col = col
+        self._name = name
         self._vals = []
         self._val_dict = {}
         if val:
@@ -124,34 +162,75 @@ class Sym:
         return 0
 
     def dist(self, idx1, idx2, dist_type="aha"):
-        if dist_type="aha":
+        if dist_type=="aha":
             if idx1 == idx2:
                 return 0
         return 1
+
+    def discretize(self, other, cohen=None, bins=None):
+        for key in set(self._val_dict | other._val_dict):
+            yield Displ(at=self._col, name=self._name, low=key, high=key,
+                        best=self._val_dict.get(key, 0), rest=self._val_dict.get(key, 0))
+
+class Row:
+    def __init__(self, dat, sample):
+        self._sample = sample
+        self._cells = dat
+        self._ranges = [None]*len(dat)
+        self._debug = False
+
+    def __repr__(self):
+        return str(self._cells)
+    def __str__(self):
+        return str(self._cells)
             
+    def __lt__(self, row2):
+        loss1 = 0
+        loss2 = 0
+        goalids = []
+        for idx in range(len(self._sample._cols)):
+            if self._sample._col_info[idx][0] == "y":
+                goalids.append(idx)
+        n = len(goalids)
+        for col in goalids:
+            w = isWeight(self._sample._col_info[col][1])
+            if self._debug:
+                print(self._cells[col])
+                print(row2._cells[col])
+                print(w)
+            a = self._sample._cols[col].norm(self._cells[col])
+            b = self._sample._cols[col].norm(row2._cells[col])
+            loss1 -= math.e**(w*(a - b)/n)
+            loss2 -= math.e**(w*(b - a)/n)
+        return loss1 < loss2
+
 
 class Sample:
     def __init__(self):
         self._rows = []
         self._cols = []
         self._col_info = []
+        self._p = 1
+        self._enough = 1/2
+        self._samples = 128
+        self._far = .9
 
     def add(self, row):
         if len(row) != len(self._cols):
             if len(self._cols) == 0:
-                for item in row:
+                for col, item in enumerate(row):
                     if isSkip(item):
                         self._col_info.append(("s", item))
-                        self._cols.append(Skip())
+                        self._cols.append(Skip(col, item))
                     else:
                         if isGoal(item):
                             self._col_info.append(("y", item))
                         else:
                             self._col_info.append(("x", item))
                         if isNum(item):
-                            self._cols.append(Num())
+                            self._cols.append(Num(col, item))
                         else:
-                            self._cols.append(Sym())
+                            self._cols.append(Sym(col, item))
                 return 0
             else:
                 print("length mismatch")
@@ -165,6 +244,7 @@ class Sample:
                         self._cols[idx].undo_add()
                     return 1
         self._rows.append(row)
+        return 0
     
     def clone(self):
         return copy.deep_copy(self)
@@ -174,6 +254,7 @@ class Sample:
         self.add(first)
         for row in rest:
             self.add(row)
+        # self._enough = math.sqrt(len(self._rows))
 
     def sort(self):
         # Brute force sort because it's late
@@ -205,31 +286,133 @@ class Sample:
         n = len(goalids)
         for idx in goalids:
             w = isWeight(self._col_info[idx][1])
-            minn = self._cols[idx]._min
+            # minn = self._cols[idx]._min
         #     print(minn)
-            maxx = self._cols[idx]._max
+            # maxx = self._cols[idx]._max
          #    print(maxx)
-            if(minn == maxx):
-                continue
-            x = (row1[idx] - minn)/(maxx - minn)
-            y = (row2[idx] - minn)/(maxx - minn)
+            # if(minn == maxx):
+                # continue
+            x = self._cols[idx].norm(row1[idx])#(row1[idx] - minn)/(maxx - minn)
+            y = self._cols[idx].norm(row2[idx])#(row2[idx] - minn)/(maxx - minn)
             s1 = s1 - e**(w*(x - y)/n)
           #   print(s1)
             s2 = s2 - e**(w*(y - x)/n)
            #  print(s2)
         return s1/n < s2/n
 
-    def neighbors(self, row_idx):
-        for c_idx, item in enumerate(self._rows[row_idx]):
-            print(item)
-            if self._col_info[c_idx][0] == "s":
-                print("Skip")
-            else:
-                base = self._cols[c_idx]
-                max_dist = -1
-                min_dist = 2
-                max_val = ""
-                min_val = ""
+    def dist(self, row_idx1, row_idx2, dist_type="aha"):
+        ret = 0
+        num_items = 0
+        for c_idx, item in enumerate(self._col_info):
+            if item[0] == "s":
+                continue
+            num_items += 1
+            # print("")
+            # print(c_idx)
+            # print(row_idx1)
+            # print(row_idx2)
+            ret += self._cols[c_idx].dist(self._rows[row_idx1][c_idx],
+                                          self._rows[row_idx2][c_idx],
+                                          dist_type)**self._p
+        if num_items == 0:
+            return 0
+        return (ret/num_items)**(1/self._p)
+
+    def neighbors(self, row_idx, row_list = None, dist_type="aha"):
+        ret = []
+        if not row_list:
+            row_list = range(len(self._rows))
+        for row in row_list:
+            # print("neighbors")
+            # print(row)
+            ret.append((self.dist(row_idx, row, dist_type), row))
+        ret.sort(key=lambda x: x[0])
+        return ret
+
+    def faraway(self, row_idx, candidates=None):
+        if not candidates:
+            candidates = range(self._rows)
+        n_samples = min(len(candidates), self._samples)
+        sel = random.sample(candidates, n_samples)
+        # print("faraway")
+        pile = self.neighbors(row_idx, sel)
+        return pile[math.floor(len(pile)*self._far)]
+
+    def div1(self, candidates=None, loud=False):
+        if not candidates:
+            candidates = range(self._rows)
+        # print("one")
+        one = self.faraway(random.randint(0, len(candidates)-1), candidates)
+        # print("two")
+        two = self.faraway(one[1], candidates)
+        # print("div1")
+        c = self.dist(one[1], two[1])
+        if loud:
+            print(" c=" + str(c))
+
+        projs = []
+        for row in candidates:
+            # print("div1 a")
+            a = self.dist(row, one[1])
+            # print("div1 b")
+            b = self.dist(row, two[1])
+            projs.append((((a**2 + c**2 - b**2)/(2*c)), row))
+
+        projs.sort(key=lambda x: x[0])
+        mid = math.floor(len(projs)/2)
+        return projs[:mid], projs[mid:]
+
+    def divs(self, loud=False):
+        leafs = []
+        threshold = len(self._rows)**self._enough
+        self._divs(range(len(self._rows)), 0, leafs, threshold, loud)
+        return leafs
+
+    def _divs(self, rows, level, leafs, threshold, loud=False):
+        if loud:
+            print("|.. "*level + " n=" + str(len(rows)), end="")
+        if len(rows) < threshold:
+            leaf = []
+            for row in rows:
+                leaf.append(Row(self._rows[row], self))
+            leaf.sort()
+            if loud:
+                print("     goals=", end="")
+                goals = []
+                med = leaf[math.floor(len(leaf)/2)]
+                for c_idx, info in enumerate(self._col_info):
+                    if info[0] == "y":
+                        goals.append(med._cells[c_idx])
+                print(goals)
+            leafs.append(leaf)
+            return
+        else:
+            left, right = self.div1(rows, loud=loud)
+            left_t = [i[1] for i in left]
+            right_t = [i[1] for i in right]
+            self._divs(left_t, level+1, leafs, threshold, loud)
+            self._divs(right_t, level+1, leafs, threshold, loud)
+
+    def leaf_clusters(self, loud=False):
+        leaves = self.divs(loud)
+        clusters = []
+        for l_idx, leaf in enumerate(leaves):
+            clusters.append((leaf[math.floor(len(leaf)/2)], l_idx))
+        clusters.sort(key=lambda x: x[0])
+        return leaves, clusters
+
+        # for c_idx, item in enumerate(self._rows[row_idx]):
+            # print(item)
+            # if self._col_info[c_idx][0] == "s":
+                # pass
+                # print("Skip")
+            # else:
+                # base = self._cols[c_idx]
+                # max_dist = -1
+                # min_dist = 2
+                # max_val = ""
+                # min_val = ""
+'''
                 for b_idx, val in enumerate(base._vals):
                     if b_idx == c_idx:
                         continue
@@ -242,3 +425,4 @@ class Sample:
                         max_val = val
             print("Nearest Neighbor: " + str(min_val) + " at " + str(min_dist))
             print("Furthest Neighbor: " + str(max_val) + " at " + str(max_dist))
+'''

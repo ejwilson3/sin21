@@ -29,15 +29,7 @@
 # cos(A) = (b^2 + c^2 - a^2)/(2bc)
 # x = (b^2 + c^2 - a^2)/(2c)
 
-import simple
-import time
 
-filename = "../data/auto93.csv"
-sample = simple.Sample()
-runtime = time.time()
-sample.read(filename)
-sample.sort()
-divtime = time.time()
-sample.divs()
-print("Ran in " + str(time.time() - runtime) + "s")
-print("Divs in " + str(time.time() - divtime) + "s")
+
+Ran in 1.1265013217926025s
+Divs in 0.11866307258605957s
