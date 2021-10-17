@@ -6,20 +6,8 @@ sample = simple.Sample()
 sample.read(filename)
 sample.sort()
 leaves, clusters = sample.leaf_clusters(True)
-
-# clusters = []
-# for leaf in leaves:
-    # clusters.append(leaf[math.floor(len(leaf)/2)])
-# clusters.sort()
-# print(*clusters, sep="\n")
-
-# for row in clusters:
-    # row._debug = True
-# 
-# print(clusters[0])
-# print(clusters[1])
-# print(clusters[0] < clusters[1])
-
+print("")
+print("")
 
 goalids = []
 goalnam = []
@@ -36,10 +24,31 @@ for cluster in clusters:
     for c_idx in goalids:
         goals.append(cluster[0]._cells[c_idx])
     print(goals)
+print("")
+print("")
 
-worst = clusters[0]
-best = clusters[-1]
-goodxs = []
-badxs = []
+worst = sample.snip([i._cells for i in leaves[0]])
+best = sample.snip([i._cells for i in leaves[-1]])
+# for row in worst._rows:
+    # print(row)
+# for row in best._rows:
+    # print(row)
+
+for c_idx, col in enumerate(best._cols):
+    if c_idx not in goalids:
+        # print(col._vals)
+        # print(c_idx)
+        gen = col.discretize(worst._cols[c_idx])
+        for it in gen:
+            print(it)
+
+print("")
+print("")
+
+for row in leaves[-1]:
+    print("best " + str(row))
+print("")
+for row in leaves[0]:
+    print("worst " + str(row))
 # for good, bad in zip((
             # left_t = [i[1] for i in left]

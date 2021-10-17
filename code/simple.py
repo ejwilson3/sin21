@@ -100,13 +100,77 @@ class Num:
         n1 = len(self._vals)
         n2 = len(other._vals)
         iota = cohen*(self._stdiv*n1 + other._stdiv*n2)/(n1 + n2)
-        ranges = merge(unsuper(xys, len(xys)**bins, iota))
+        ranges = self.merge(self.unsuper(xys, bins, iota))
 
+        # print(ranges)
         if len(ranges) > 1:
             for r in ranges:
-# TODO
-                # Do I need to keep track of the number of each specific values?
-                yield Displ(at=self._col, name=self._name, low=self._min, high=self._max, best=self._val_dict.get(key, 0), rest=self._val_dict.get(key, 0))
+                best_count = 0
+                rest_count = 0
+                for item in r:
+                    if item[1]:
+                        best_count += 1
+                    else:
+                        rest_count += 1
+                # print(r)
+                yield Displ(at=self._col, name=self._name, low=r[0][0], 
+                            high=r[-1][0], best=best_count, rest=rest_count)
+
+    def unsuper(self, dat, binsize, alsobinsize):
+        dat.sort(key=lambda x: x[0])
+        # print(dat)
+        ret = []
+        d_bin = []
+
+        for idx, val in enumerate(dat):
+            if (idx > 0) and (dat[idx-1][0] != val[0]) and (len(d_bin) >= binsize) and (len(d_bin) >= alsobinsize):
+                ret.append(d_bin)
+                d_bin = []
+                
+            d_bin.append(val)
+
+        # print(ret)
+        # print(d_bin)
+        # print(binsize)
+        # print(alsobinsize)
+
+        if (len(d_bin) >= binsize) and (len(d_bin) >= alsobinsize):
+            ret.append(d_bin)
+        else:
+            ret[-1] += d_bin
+        # print("unsuper out = " + str(ret))
+
+        return ret
+
+    def merge(self, bins):
+        # print("merge in = " + str(bins))
+        ret = []
+        remerge = False
+        idx = 0
+        while idx < len(bins) - 1:
+            a = bins[idx]
+            b = bins[idx+1]
+            var_a = bin_variance(a)
+            var_b = bin_variance(b)
+            var_c = bin_variance(a + b)
+            if var_c*.95 <= (var_a*len(a) + var_b*len(b))/(len(a) + len(b)):
+                remerge = True
+                ret.append(a+b)
+                idx += 2
+            else:
+                ret.append(a)
+                idx += 1
+                if idx == len(bins) - 1:
+                    ret.append(b)
+
+        if remerge:
+            return self.merge(ret)
+        return ret
+
+def bin_variance(items):
+    return np.std([i[0] for i in items])
+
+        
 
 class Skip:
     def __init__(self, col, name, val=None):
@@ -168,9 +232,9 @@ class Sym:
         return 1
 
     def discretize(self, other, cohen=None, bins=None):
-        for key in set(self._val_dict | other._val_dict):
+        for key in set(self._val_dict.keys() | other._val_dict.keys()):
             yield Displ(at=self._col, name=self._name, low=key, high=key,
-                        best=self._val_dict.get(key, 0), rest=self._val_dict.get(key, 0))
+                        best=self._val_dict.get(key, 0), rest=other._val_dict.get(key, 0))
 
 class Row:
     def __init__(self, dat, sample):
@@ -248,6 +312,13 @@ class Sample:
     
     def clone(self):
         return copy.deep_copy(self)
+
+    def snip(self, rows):
+        ret = Sample()
+        ret.add([i[1] for i in self._col_info])
+        for row in rows:
+            ret.add(row)
+        return ret
     
     def read(self, filename):
         first, rest = hw2.csv(filename)
