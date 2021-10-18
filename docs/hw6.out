@@ -1,0 +1,50 @@
+tree 0
+1     if Cylinders <= 4.0 then [2542, 17, 30] (203)
+1 elseif Cylinders <= 6.0 then [3620, 18.7, 20] (86)
+1 elseif Model >= 78.0 then [3850, 8.5, 20] (92)
+0 else   [3850, 8.5, 20] (11)
+
+tree 1
+1     if Cylinders <= 4.0 then [2542, 17, 30] (203)
+1 elseif Cylinders <= 6.0 then [3620, 18.7, 20] (86)
+0 elseif Displacement >= 390.0 then [4440, 14, 20] (81)
+1 else   [4440, 14, 20] (22)
+
+tree 2
+1     if Cylinders <= 4.0 then [2542, 17, 30] (203)
+0 elseif Cylinders == 8.0 then [3830, 15.2, 20] (189)
+1 else   [3830, 15.2, 20] (0)
+
+tree 3
+0     if origin == 1 then [3465, 16.6, 20] (245)
+1 elseif Cylinders <= 4.0 then [2223, 16.5, 30] (134)
+0 else   [2223, 16.5, 30] (13)
+
+tree 4
+0     if origin == 1 then [3465, 16.6, 20] (245)
+0 elseif origin == 2 then [2672, 17.5, 30] (68)
+1 elseif 86.0 <= Displacement <= 91.0 then [1965, 15, 40] (15)
+1 elseif 67.0 <= Horsepower <= 70.0 then [2145, 18, 30] (11)
+1 elseif 80.0 <= Displacement <= 97.0 then [2155, 16.4, 30] (14)
+0 else   [2155, 16.4, 30] (39)
+
+tree 5
+0     if origin == 1 then [3465, 16.6, 20] (245)
+0 elseif origin == 2 then [2672, 17.5, 30] (68)
+1 elseif 86.0 <= Displacement <= 91.0 then [1965, 15, 40] (15)
+1 elseif 67.0 <= Horsepower <= 70.0 then [2145, 18, 30] (11)
+0 elseif Horsepower >= 97.0 then [2265, 15.2, 30] (45)
+1 else   [2265, 15.2, 30] (8)
+
+tree 6
+0     if origin == 1 then [3465, 16.6, 20] (245)
+0 elseif origin == 2 then [2672, 17.5, 30] (68)
+1 elseif 86.0 <= Displacement <= 91.0 then [1965, 15, 40] (15)
+0 elseif Horsepower >= 97.0 then [2290, 17, 30] (56)
+1 else   [2290, 17, 30] (8)
+
+tree 7
+0     if origin == 1 then [3465, 16.6, 20] (245)
+0 elseif origin == 2 then [2672, 17.5, 30] (68)
+0 elseif Horsepower >= 97.0 then [1985, 16, 30] (71)
+1 else   [1985, 16, 30] (8)

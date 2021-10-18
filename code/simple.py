@@ -104,7 +104,7 @@ class Num:
 
         # print(ranges)
         if len(ranges) > 1:
-            for r in ranges:
+            for i, r in enumerate(ranges):
                 best_count = 0
                 rest_count = 0
                 for item in r:
@@ -114,7 +114,9 @@ class Num:
                         rest_count += 1
                 # print(r)
                 yield Displ(at=self._col, name=self._name, low=r[0][0], 
-                            high=r[-1][0], best=best_count, rest=rest_count)
+                            high=r[-1][0], best=best_count, bests=n1,
+                            rest=rest_count, rests=n2, first=i==0,
+                            last=i==len(ranges)-1)
 
     def unsuper(self, dat, binsize, alsobinsize):
         dat.sort(key=lambda x: x[0])
@@ -170,7 +172,6 @@ class Num:
 def bin_variance(items):
     return np.std([i[0] for i in items])
 
-        
 
 class Skip:
     def __init__(self, col, name, val=None):
@@ -234,7 +235,9 @@ class Sym:
     def discretize(self, other, cohen=None, bins=None):
         for key in set(self._val_dict.keys() | other._val_dict.keys()):
             yield Displ(at=self._col, name=self._name, low=key, high=key,
-                        best=self._val_dict.get(key, 0), rest=other._val_dict.get(key, 0))
+                        best=self._val_dict.get(key, 0), bests=len(self._vals),
+                        rest=other._val_dict.get(key, 0),
+                        rests=len(other._vals), first=False, last=False)
 
 class Row:
     def __init__(self, dat, sample):
@@ -251,10 +254,10 @@ class Row:
     def __lt__(self, row2):
         loss1 = 0
         loss2 = 0
-        goalids = []
-        for idx in range(len(self._sample._cols)):
-            if self._sample._col_info[idx][0] == "y":
-                goalids.append(idx)
+        goalids = self._sample._ys
+        # for idx in range(len(self._sample._cols)):
+            # if self._sample._col_info[idx][0] == "y":
+                # goalids.append(idx)
         n = len(goalids)
         for col in goalids:
             w = isWeight(self._sample._col_info[col][1])
@@ -268,16 +271,35 @@ class Row:
             loss2 -= math.e**(w*(b - a)/n)
         return loss1 < loss2
 
+class Leaf:
+    def __init__(self, name=None, c_idx=None, vals=None, low=None, high=None,
+                 first=None, last=None):
+        self.name = name
+        self.c_idx = c_idx
+        self.vals = vals
+        if vals:
+            if not low:
+                low = min(vals)
+            if not high:
+                high = max(vals)
+        self.low = low
+        self.high = high
+        self.first = first
+        self.last = last
 
 class Sample:
     def __init__(self):
         self._rows = []
         self._cols = []
         self._col_info = []
+        self._ys = []
+        self._xs = []
+
         self._p = 1
         self._enough = 1/2
         self._samples = 128
         self._far = .9
+        self._support = 2
 
     def add(self, row):
         if len(row) != len(self._cols):
@@ -289,8 +311,10 @@ class Sample:
                     else:
                         if isGoal(item):
                             self._col_info.append(("y", item))
+                            self._ys.append(col)
                         else:
                             self._col_info.append(("x", item))
+                            self._xs.append(col)
                         if isNum(item):
                             self._cols.append(Num(col, item))
                         else:
@@ -313,7 +337,7 @@ class Sample:
     def clone(self):
         return copy.deep_copy(self)
 
-    def snip(self, rows):
+    def shoot(self, rows=[]):
         ret = Sample()
         ret.add([i[1] for i in self._col_info])
         for row in rows:
@@ -336,21 +360,11 @@ class Sample:
                 else:
                     break
 
-
-        # print(self._col_info)
-        # print(self._rows[0])
-        # print(self._rows[1])
-        # print(self.zitler(self._rows[0], self._rows[1]))
-        # print(self.zitler(self._rows[1], self._rows[2]))
-        # print(self.zitler(self._rows[2], self._rows[3]))
-        # print(cmp_to_key(self.zitler))
-        # print(sorted(self._rows, key=cmp_to_key(self.zitler)))
-
     def zitler(self, row1, row2):
-        goalids = []
-        for idx in range(len(self._cols)):
-            if self._col_info[idx][0] == "y":
-                goalids.append(idx)
+        goalids = self._ys
+        # for idx in range(len(self._cols)):
+            # if self._col_info[idx][0] == "y":
+                # goalids.append(idx)
         s1 = 0.0
         s2 = 0.0
         e = 2.71828
@@ -366,9 +380,7 @@ class Sample:
             x = self._cols[idx].norm(row1[idx])#(row1[idx] - minn)/(maxx - minn)
             y = self._cols[idx].norm(row2[idx])#(row2[idx] - minn)/(maxx - minn)
             s1 = s1 - e**(w*(x - y)/n)
-          #   print(s1)
             s2 = s2 - e**(w*(y - x)/n)
-           #  print(s2)
         return s1/n < s2/n
 
     def dist(self, row_idx1, row_idx2, dist_type="aha"):
@@ -378,10 +390,6 @@ class Sample:
             if item[0] == "s":
                 continue
             num_items += 1
-            # print("")
-            # print(c_idx)
-            # print(row_idx1)
-            # print(row_idx2)
             ret += self._cols[c_idx].dist(self._rows[row_idx1][c_idx],
                                           self._rows[row_idx2][c_idx],
                                           dist_type)**self._p
@@ -394,8 +402,6 @@ class Sample:
         if not row_list:
             row_list = range(len(self._rows))
         for row in row_list:
-            # print("neighbors")
-            # print(row)
             ret.append((self.dist(row_idx, row, dist_type), row))
         ret.sort(key=lambda x: x[0])
         return ret
@@ -405,27 +411,21 @@ class Sample:
             candidates = range(self._rows)
         n_samples = min(len(candidates), self._samples)
         sel = random.sample(candidates, n_samples)
-        # print("faraway")
         pile = self.neighbors(row_idx, sel)
         return pile[math.floor(len(pile)*self._far)]
 
     def div1(self, candidates=None, loud=False):
         if not candidates:
             candidates = range(self._rows)
-        # print("one")
         one = self.faraway(random.randint(0, len(candidates)-1), candidates)
-        # print("two")
         two = self.faraway(one[1], candidates)
-        # print("div1")
         c = self.dist(one[1], two[1])
         if loud:
             print(" c=" + str(c))
 
         projs = []
         for row in candidates:
-            # print("div1 a")
             a = self.dist(row, one[1])
-            # print("div1 b")
             b = self.dist(row, two[1])
             projs.append((((a**2 + c**2 - b**2)/(2*c)), row))
 
@@ -471,29 +471,83 @@ class Sample:
             clusters.append((leaf[math.floor(len(leaf)/2)], l_idx))
         clusters.sort(key=lambda x: x[0])
         return leaves, clusters
+    
+    def value(self, rule, leaf):
+        s = self._support
+# this gave me subscript issues, so I'm doint something probably less efficient.
+        # rules = Displ(plan=lambda b,r: b**s/(b+r) if b>r else 0,
+                      # monitor=lambda b,r: r**s/(b+r) if r>b else 0,
+                      # novel=lambda b,r: 1/(b+r))
+        # return rules[rule](leaf.best/leaf.bests, leaf.rest/leaf.rests)
+        b = leaf.best/leaf.bests
+        r = leaf.rest/leaf.rests
+        if rule == "plan":
+            return b**s/(b+r) if b>r else 0
+        elif rule == "monitor":
+            return r**s/(b+r) if r>b else 0
+        elif rule == "novel":
+            return 1/(b+r)
+        else:
+            return None
 
-        # for c_idx, item in enumerate(self._rows[row_idx]):
-            # print(item)
-            # if self._col_info[c_idx][0] == "s":
-                # pass
-                # print("Skip")
-            # else:
-                # base = self._cols[c_idx]
-                # max_dist = -1
-                # min_dist = 2
-                # max_val = ""
-                # min_val = ""
-'''
-                for b_idx, val in enumerate(base._vals):
-                    if b_idx == c_idx:
-                        continue
-                    dist = base.dist(item, val)
-                    if dist < min_dist:
-                        min_dist = dist
-                        min_val = val
-                    if dist > max_dist:
-                        max_dist = dist
-                        max_val = val
-            print("Nearest Neighbor: " + str(min_val) + " at " + str(min_dist))
-            print("Furthest Neighbor: " + str(max_val) + " at " + str(max_dist))
-'''
+    def values(self, rule, leaves):
+        # print(leaves)
+        # print(leaves[0])
+        leaves = [(self.value(rule, leaf), leaf) for leaf in leaves]
+        # return sorted([(n, leaf) for n, leaf in leaves if n > 0],key=first)
+        # first doesn't work. Comparing "n"?
+        return sorted([(n, leaf) for n, leaf in leaves if n > 0],
+                      key=lambda x: x[0])
+
+class Fft:
+    def __init__(self, sample, branch, branches, stop=None, level=0, mul=None):
+        if not mul:
+            mul = 1/2
+        stop = stop or 2*len(sample._rows)**mul
+        midpt = math.floor(len(sample._rows)/2)
+        best = sample.shoot(sample._rows[:midpt])
+        rest = sample.shoot(sample._rows[midpt:])
+        best.sort()
+        rest.sort()
+        bins = []
+        for x in sample._xs:
+            # xbins = []
+            for bin in best._cols[x].discretize(rest._cols[x]):
+                # Is this too much?
+                bins.append(bin)
+            # bins.append(xbins)
+        bestIdea  = sample.values("plan",    bins)[-1][1]
+        worstIdea = sample.values("monitor", bins)[-1][1]
+        # pre = "|.. "*level
+        for yes, no, idea in [(1, 0, bestIdea), (0, 1, worstIdea)]:
+            leaf, tree = sample.shoot(), sample.shoot()
+            for row in sample._rows:
+                (leaf if match(idea, row) else tree).add(row)
+            branch1 = copy.deepcopy(branch)
+            med = leaf._rows[math.floor(len(leaf._rows)/2)]
+            yvals = []
+            for c_idx in leaf._ys:
+                yvals.append(med[c_idx])
+            branch1 += [Displ(at=idea.at, low=idea.low, high=idea.high,
+                              type=yes, txt="if " + show(idea) + " then",
+                              then=yvals, n=len(leaf._rows))]
+            if len(tree._rows) <= stop:
+                branch1 += [Displ(type=no, txt="  ", then=yvals,
+                                  n=len(tree._rows))]
+                branches += [branch1]
+            else:
+                Fft(tree, branch1, branches, stop=stop, level=level+1, mul=mul)
+
+
+def match(leaf, row):
+    v = row[leaf.at]
+    if v=="?"       : return True
+    elif leaf.first : return v <= leaf.high
+    elif leaf.last  : return v <= leaf.low
+    else            : return leaf.low <= v <= leaf.high
+
+def show(leaf):
+    if leaf.low == leaf.high : return f"{leaf.name} == {leaf.low}"
+    elif leaf.first          : return f"{leaf.name} <= {leaf.high}"
+    elif leaf.last           : return f"{leaf.name} >= {leaf.low}"
+    else                    : return f"{leaf.low} <= {leaf.name} <= {leaf.high}"

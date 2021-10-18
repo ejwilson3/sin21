@@ -27,8 +27,8 @@ for cluster in clusters:
 print("")
 print("")
 
-worst = sample.snip([i._cells for i in leaves[0]])
-best = sample.snip([i._cells for i in leaves[-1]])
+worst = sample.shoot([i._cells for i in leaves[0]])
+best = sample.shoot([i._cells for i in leaves[-1]])
 # for row in worst._rows:
     # print(row)
 # for row in best._rows:
