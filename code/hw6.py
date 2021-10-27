@@ -1,8 +1,9 @@
 import simple
+import conf
 import math
 
 filename = "../data/auto93.csv"
-sample = simple.Sample()
+sample = simple.Sample(conf.CONFIG)
 sample.read(filename)
 sample.sort()
 branches = []
